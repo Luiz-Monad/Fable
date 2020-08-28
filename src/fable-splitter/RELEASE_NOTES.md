@@ -1,3 +1,23 @@
+### 2.2.1
+
+* Improve API for cli mode
+
+### 2.2.0
+
+* Add API for cli mode
+
+### 2.1.14
+
+* Add --runInspect flag instead of checking debug mode
+
+### 2.1.13
+
+* Update to fable-babel-plugins 2.3.0
+
+### 2.1.12
+
+* Pass `--inspect` option to node, when running script in debug mode
+
 ### 2.1.11
 
 * Add --usePolling flag @drk-mtr

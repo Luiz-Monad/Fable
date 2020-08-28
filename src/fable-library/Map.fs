@@ -451,7 +451,9 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
     member __.ToList() = MapTree.toList tree
 
     override this.ToString() =
-        "map [" + (this |> Seq.map (fun kv -> sprintf "(%A, %A)" kv.Key kv.Value) |> String.concat "; ") + "]"
+        let toStr (kv: KeyValuePair<'Key,'Value>) = System.String.Format("({0}, {1})", kv.Key, kv.Value)
+        let str = (this |> Seq.map toStr |> String.concat "; ")
+        "map [" + str + "]"
 
     override this.GetHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
@@ -569,36 +571,36 @@ let toArray (m:Map<'Key,'Value>) =
 let empty<'Key,'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) =
     new Map<'Key,'Value>(comparer, MapTree.MapEmpty)
 
-let private createMutablePrivate (comparer: IComparer<'Key>) tree' =
-    let mutable tree = tree'
-    { new IMutableMap<'Key,'Value> with
-        member __.size = MapTree.size tree
-        member __.clear () =
-            tree <- MapEmpty
-        member __.delete x =
-            if MapTree.mem comparer x tree
-            then tree <- MapTree.remove comparer x tree; true
-            else false
-        member __.entries () =
-            MapTree.toSeq tree
-        member __.get k =
-            MapTree.find comparer k tree
-        member __.has x =
-            MapTree.mem comparer x tree
-        member __.keys () =
-            MapTree.toSeq tree |> Seq.map (fun kv -> kv.Key)
-        member this.set(k, v) =
-            tree <- MapTree.add comparer k v tree
-            this
-        member __.values () =
-            MapTree.toSeq tree |> Seq.map (fun kv -> kv.Value)
-    interface IEnumerable<_> with
-        member __.GetEnumerator() =
-            MapTree.mkIEnumerator tree
-    interface IEnumerable with
-        member __.GetEnumerator() =
-            upcast MapTree.mkIEnumerator tree
-    }
+// let private createMutablePrivate (comparer: IComparer<'Key>) tree' =
+//     let mutable tree = tree'
+//     { new IMutableMap<'Key,'Value> with
+//         member __.size = MapTree.size tree
+//         member __.clear () =
+//             tree <- MapEmpty
+//         member __.delete x =
+//             if MapTree.mem comparer x tree
+//             then tree <- MapTree.remove comparer x tree; true
+//             else false
+//         member __.entries () =
+//             MapTree.toSeq tree
+//         member __.get k =
+//             MapTree.find comparer k tree
+//         member __.has x =
+//             MapTree.mem comparer x tree
+//         member __.keys () =
+//             MapTree.toSeq tree |> Seq.map (fun kv -> kv.Key)
+//         member this.set(k, v) =
+//             tree <- MapTree.add comparer k v tree
+//             this
+//         member __.values () =
+//             MapTree.toSeq tree |> Seq.map (fun kv -> kv.Value)
+//     interface IEnumerable<_> with
+//         member __.GetEnumerator() =
+//             MapTree.mkIEnumerator tree
+//     interface IEnumerable with
+//         member __.GetEnumerator() =
+//             upcast MapTree.mkIEnumerator tree
+//     }
 
 /// Emulate JS Map with custom comparer for non-primitive values
 

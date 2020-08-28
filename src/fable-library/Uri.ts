@@ -4,9 +4,9 @@ export const enum UriKind {
   Relative = 2,
 }
 
-export default class Uri {
-  private url: string | URL;
-  private kind: UriKind;
+export class Uri {
+  private url?: string | URL;
+  private kind?: UriKind;
 
   constructor(
     value: string | Uri,
@@ -26,7 +26,7 @@ export default class Uri {
         let isRelativeUrl = false;
         try {
           const url = new URL(value);
-          isRelativeUrl = false;
+          isRelativeUrl = false && url;
         } catch (e) {
           isRelativeUrl = true;
         }
@@ -61,6 +61,10 @@ export default class Uri {
     }
   }
 
+  public toString() {
+    return decodeURIComponent(this.parseUrl().toString());
+  }
+
   private parseUrl(): URL {
     if (this.kind === UriKind.Absolute) {
       return this.url as URL;
@@ -76,11 +80,22 @@ export default class Uri {
   get isAbsoluteUri() {
     try {
       this.parseUrl();
-
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  get absoluteUri(): string {
+    if (this.kind === UriKind.Absolute) {
+      return (this.url as URL).href;
+    }
+
+    if (this.kind === UriKind.RelativeOrAbsolute) {
+      return this.url as string;
+    }
+
+    throw new Error("This operation is not supported for a relative URI.");
   }
 
   get scheme() {
@@ -109,3 +124,5 @@ export default class Uri {
     return this.parseUrl().hash;
   }
 }
+
+export default Uri;

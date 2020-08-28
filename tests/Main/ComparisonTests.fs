@@ -5,6 +5,7 @@ open Util.Testing
 open Fable.Tests.Util
 open Fable.Core.JsInterop
 open System.Collections.Generic
+open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 type UTest = A of int | B of int
 type RTest = { a: int; b: int }
@@ -372,6 +373,21 @@ let tests =
             false
         |> equal false
 
+    testCase "using function disposes the resource when action finishes" <| fun () ->
+        let mutable disposed = false
+        let resource = { new IDisposable with member __.Dispose() = disposed <- true }
+        using resource (fun _resource -> ())
+        equal true disposed
+
+    testCase "using function disposes the resource when action fails" <| fun () ->
+        let mutable disposed = false
+        let resource = { new IDisposable with member __.Dispose() = disposed <- true }
+        try
+            using resource (fun _resource -> failwith "action failed")
+        with
+        | _ -> () // ignore
+        equal true disposed
+
     testCase "isNull with primitives works" <| fun () ->
         isNull null |> equal true
         isNull "" |> equal false
@@ -384,6 +400,55 @@ let tests =
         let s2: String = "hello"
         isNull s2 |> equal false
 
+    testCase "GetHashCode with arrays works" <| fun () ->
+        ([|1; 2|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual
+        ([|2; 1|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with lists works" <| fun () ->
+        ([1; 2].GetHashCode(), [1; 2].GetHashCode()) ||> equal
+        ([2; 1].GetHashCode(), [1; 2].GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with tuples works" <| fun () ->
+        ((1, 2).GetHashCode(), (1, 2).GetHashCode()) ||> equal
+        ((2, 1).GetHashCode(), (1, 2).GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with options works" <| fun () ->
+        ((Some 1).GetHashCode(), (Some 1).GetHashCode()) ||> equal
+        ((Some 2).GetHashCode(), (Some 1).GetHashCode()) ||> notEqual
+        ((Some None).GetHashCode(), (Some 1).GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with unions works" <| fun () ->
+        ((UTest.A 1).GetHashCode(), (UTest.A 1).GetHashCode()) ||> equal
+        ((UTest.A 2).GetHashCode(), (UTest.A 1).GetHashCode()) ||> notEqual
+        ((UTest.B 1).GetHashCode(), (UTest.A 1).GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with records works" <| fun () ->
+        ({a=1; b=2}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> equal
+        ({a=2; b=1}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with structs works" <| fun () ->
+        (STest(1).GetHashCode(), STest(1).GetHashCode()) ||> equal
+        (STest(2).GetHashCode(), STest(1).GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with objects works" <| fun () ->
+        (OTest(1).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
+        (OTest(2).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with objects that overwrite it works" <| fun () ->
+        (Test(1).GetHashCode(), Test(1).GetHashCode()) ||> equal
+        (Test(2).GetHashCode(), Test(1).GetHashCode()) ||> notEqual
+
+    testCase "GetHashCode with same object works" <| fun () ->
+        let o = OTest(1)
+        let h1 = o.GetHashCode()
+        o.A <- 2
+        let h2 = o.GetHashCode()
+        (h1, h2) ||> equal
+
+    testCase "GetHashCode with primitives works" <| fun () ->
+        ("1".GetHashCode(), "1".GetHashCode()) ||> equal
+        ("2".GetHashCode(), "1".GetHashCode()) ||> notEqual
+
     testCase "hash with arrays works" <| fun () ->
         (hash [|1; 2|], hash [|1; 2|]) ||> equal
         (hash [|2; 1|], hash [|1; 2|]) ||> notEqual
@@ -395,6 +460,11 @@ let tests =
     testCase "hash with tuples works" <| fun () ->
         (hash (1, 2), hash (1, 2)) ||> equal
         (hash (2, 1), hash (1, 2)) ||> notEqual
+
+    testCase "hash with options works" <| fun () ->
+        (hash (Some 1), hash (Some 1)) ||> equal
+        (hash (Some 2), hash (Some 1)) ||> notEqual
+        (hash (Some None), hash (Some 1)) ||> notEqual
 
     testCase "hash with unions works" <| fun () ->
         (hash (UTest.A 1), hash (UTest.A 1)) ||> equal
@@ -535,4 +605,32 @@ let tests =
         LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
         LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
         LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
+
+    testCase "LanguagePrimitives.SByteWithMeasure works" <| fun () ->
+        let distance: sbyte<m> = LanguagePrimitives.SByteWithMeasure 1y
+        distance |> equal 1y<m>
+
+    testCase "LanguagePrimitives.Int16WithMeasure works" <| fun () ->
+        let distance: int16<m> = LanguagePrimitives.Int16WithMeasure 1s
+        distance |> equal 1s<m>
+
+    testCase "LanguagePrimitives.Int32WithMeasure works" <| fun () ->
+        let distance: int<m> = LanguagePrimitives.Int32WithMeasure 1
+        distance |> equal 1<m>
+
+    testCase "LanguagePrimitives.Int64WithMeasure works" <| fun () ->
+        let distance: int64<m> = LanguagePrimitives.Int64WithMeasure 1L
+        distance |> equal 1L<m>
+
+    testCase "LanguagePrimitives.Float32WithMeasure works" <| fun () ->
+        let distance: float32<m> = LanguagePrimitives.Float32WithMeasure 1.0f
+        distance |> equal 1.0f<m>
+
+    testCase "LanguagePrimitives.FloatWithMeasure works" <| fun () ->
+        let distance: float<m> = LanguagePrimitives.FloatWithMeasure 1.0
+        distance |> equal 1.0<m>
+
+    testCase "LanguagePrimitives.DecimalWithMeasure works" <| fun () ->
+        let distance: decimal<m> = LanguagePrimitives.DecimalWithMeasure 1.0m
+        distance |> equal 1.0m<m>
   ]

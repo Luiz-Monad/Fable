@@ -1,11 +1,21 @@
 // tslint:disable:ban-types
 
+export function bindThis(this$: any, source: any) {
+  for (const key of Object.keys(source)) {
+    if (typeof source[key] === "function") {
+      source[key] = source[key].bind(this$);
+    }
+  }
+  return source;
+}
+
 // Object.assign flattens getters and setters
 // See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
 export function extend(target: any, ...sources: any[]) {
   for (const source of sources) {
     for (const key of Object.keys(source)) {
-      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+      const descr = Object.getOwnPropertyDescriptor(source, key);
+      if (descr) { Object.defineProperty(target, key, descr); }
     }
   }
   return target;
@@ -26,12 +36,24 @@ export interface IDateTimeOffset extends Date {
   offset?: number;
 }
 
-export interface IComparer<T> {
-  Compare(x: T, y: T): number;
-}
-
 export interface IComparable<T> {
   CompareTo(x: T): number;
+}
+
+export interface IEquatable<T> {
+  Equals(x: T): boolean;
+}
+
+export interface IHashable {
+  GetHashCode(): number;
+}
+
+export interface IDisposable {
+  Dispose(): void;
+}
+
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
 }
 
 export interface IEqualityComparer<T> {
@@ -39,16 +61,66 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface IEquatable<T> {
-  Equals(x: T): boolean;
+export interface ICollection<T> {
+  readonly Count: number;
+  readonly IsReadOnly: boolean;
+  Add(item: T): void;
+  Clear(): void;
+  Contains(item: T): boolean;
+  CopyTo(array: T[], arrayIndex: number): void;
+  Remove(item: T): boolean;
 }
 
-export interface IDisposable {
-  Dispose(): void;
+export interface IMutableMap<K, V> {
+  readonly size: number;
+  clear(): void;
+  delete(key: K): boolean;
+  get(key: K): V | undefined;
+  has(key: K): boolean;
+  set(key: K, value: V): this;
+  keys(): Iterable<K>;
+  values(): Iterable<V>;
+  entries(): Iterable<[K, V]>;
 }
 
-export function isDisposable(x: any) {
-  return x != null && typeof x.Dispose === "function";
+export interface IMutableSet<T> {
+  readonly size: number;
+  add(value: T): this;
+  add_(value: T): boolean;
+  clear(): void;
+  delete(value: T): boolean;
+  has(value: T): boolean;
+  keys(): Iterable<T>;
+  values(): Iterable<T>;
+  entries(): Iterable<[T, T]>;
+}
+
+export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
+  return x != null && typeof x === "object" && Symbol.iterator in x;
+}
+
+export function isArrayLike<T>(x: T | ArrayLike<T>): x is ArrayLike<T> {
+  return x != null && (Array.isArray(x) || ArrayBuffer.isView(x));
+}
+
+export function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
+  return x != null && typeof (x as IComparer<T>).Compare === "function";
+}
+
+export function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
+  return x != null && typeof (x as IComparable<T>).CompareTo === "function";
+}
+
+export function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
+  return x != null && typeof (x as IEquatable<T>).Equals === "function";
+}
+
+export function isHashable<T>(x: T | IHashable): x is IHashable {
+  return x != null && typeof (x as IHashable).GetHashCode === "function";
+}
+
+export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
+  return x != null && typeof (x as IDisposable).Dispose === "function";
 }
 
 export class Comparer<T> implements IComparer<T> {
@@ -59,10 +131,10 @@ export class Comparer<T> implements IComparer<T> {
   }
 }
 
-export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>) {
+export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>): IComparer<T> {
   // Sometimes IEqualityComparer also implements IComparer
-  if (typeof (comparer as any).Compare === "function") {
-    return new Comparer<T>((comparer as any).Compare);
+  if (isComparer(comparer)) {
+    return new Comparer<T>((comparer as any as IComparer<T>).Compare);
   } else {
     return new Comparer<T>((x: T, y: T) => {
       const xhash = comparer.GetHashCode(x);
@@ -86,8 +158,8 @@ export function containsValue<K, V>(v: V, map: Map<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V): [boolean, V] {
-  return map.has(key) ? [true, map.get(key)] : [false, defaultValue];
+export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V | null): [boolean, V] {
+  return map.has(key) ? [true, map.get(key) as V] : [false, defaultValue as V];
 }
 
 export function addToSet<T>(v: T, set: Set<T>) {
@@ -120,7 +192,7 @@ export class Lazy<T> {
   public factory: () => T;
   public isValueCreated: boolean;
 
-  private createdValue: T;
+  private createdValue?: T;
 
   constructor(factory: () => T) {
     this.factory = factory;
@@ -214,7 +286,7 @@ export function combineHashCodes(hashes: number[]) {
   });
 }
 
-export function identityHash(x: any): number {
+export function identityHash<T>(x: T): number {
   if (x == null) {
     return 0;
   }
@@ -230,7 +302,7 @@ export function identityHash(x: any): number {
   }
 }
 
-export function structuralHash(x: any): number {
+export function structuralHash<T>(x: T): number {
   if (x == null) {
     return 0;
   }
@@ -242,14 +314,13 @@ export function structuralHash(x: any): number {
     case "string":
       return stringHash(x);
     default: {
-      if (typeof x.GetHashCode === "function") {
+      if (isHashable(x)) {
         return x.GetHashCode();
-      } else if (isArray(x)) {
-        const ar = (x as ArrayLike<any>);
-        const len = ar.length;
+      } else if (isArrayLike(x)) {
+        const len = x.length;
         const hashes: number[] = new Array(len);
         for (let i = 0; i < len; i++) {
-          hashes[i] = structuralHash(ar[i]);
+          hashes[i] = structuralHash(x[i]);
         }
         return combineHashCodes(hashes);
       } else {
@@ -257,14 +328,6 @@ export function structuralHash(x: any): number {
       }
     }
   }
-}
-
-export function isArray(x: any) {
-  return Array.isArray(x) || ArrayBuffer.isView(x);
-}
-
-export function isIterable(x: any) {
-  return x != null && typeof x === "object" && Symbol.iterator in x;
 }
 
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
@@ -299,7 +362,7 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
 //   return true;
 // }
 
-export function equals(x: any, y: any): boolean {
+export function equals<T>(x: T, y: T): boolean {
   if (x === y) {
     return true;
   } else if (x == null) {
@@ -308,10 +371,10 @@ export function equals(x: any, y: any): boolean {
     return false;
   } else if (typeof x !== "object") {
     return false;
-  } else if (typeof x.Equals === "function") {
+  } else if (isEquatable(x)) {
     return x.Equals(y);
-  } else if (isArray(x)) {
-    return isArray(y) && equalArrays(x, y);
+  } else if (isArrayLike(x)) {
+    return isArrayLike(y) && equalArrays(x, y);
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
@@ -378,7 +441,7 @@ export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any })
   return 0;
 }
 
-export function compare(x: any, y: any): number {
+export function compare<T>(x: T, y: T): number {
   if (x === y) {
     return 0;
   } else if (x == null) {
@@ -387,12 +450,12 @@ export function compare(x: any, y: any): number {
     return 1;
   } else if (typeof x !== "object") {
     return x < y ? -1 : 1;
-  } else if (typeof x.CompareTo === "function") {
+  } else if (isComparable(x)) {
     return x.CompareTo(y);
-  } else if (isArray(x)) {
-    return isArray(y) && compareArrays(x, y);
-  } else if (x instanceof Date) {
-    return (y instanceof Date) && compareDates(x, y);
+  } else if (isArrayLike(x) && isArrayLike(y)) {
+    return compareArrays(x, y);
+  } else if (x instanceof Date && y instanceof Date) {
+    return compareDates(x, y);
   } else {
     return 1;
   }
@@ -408,7 +471,7 @@ export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
 
 export function createAtom<T>(value: T): (v?: T) => T | void {
   let atom = value;
-  return (value: T) => {
+  return (value?: T) => {
     if (value === void 0) {
       return atom;
     } else {
@@ -427,9 +490,9 @@ const CaseRules = {
 };
 
 function dashify(str: string, separator: string) {
-    return str.replace(/[a-z]?[A-Z]/g, (m) => m.length === 1
-        ? m.toLowerCase()
-        : m.charAt(0) + separator + m.charAt(1).toLowerCase());
+  return str.replace(/[a-z]?[A-Z]/g, (m) => m.length === 1
+    ? m.toLowerCase()
+    : m.charAt(0) + separator + m.charAt(1).toLowerCase());
 }
 
 function changeCase(str: string, caseRule: number) {
@@ -544,8 +607,8 @@ export function escapeUriString(s: string): string {
 // ICollection.Clear and Count members can be called on Arrays
 // or Dictionaries so we need a runtime check (see #1120)
 export function count<T>(col: Iterable<T>): number {
-  if (isArray(col)) {
-    return (col as T[]).length;
+  if (isArrayLike(col)) {
+    return col.length;
   } else {
     let count = 0;
     for (const _ of col) {
@@ -556,8 +619,8 @@ export function count<T>(col: Iterable<T>): number {
 }
 
 export function clear<T>(col: Iterable<T>) {
-  if (isArray(col)) {
-    (col as any).splice(0);
+  if (isArrayLike(col)) {
+    (col as any as T[]).splice(0);
   } else {
     (col as any).clear();
   }
@@ -567,7 +630,7 @@ const CURRIED_KEY = "__CURRIED__";
 
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
-  if (f == null) { return null; }
+  if (f == null) { return undefined; }
 
   // The function is already uncurried
   if (f.length > 1) {
@@ -607,8 +670,8 @@ export function uncurry(arity: number, f: Function) {
   return uncurriedFn;
 }
 
-export function curry(arity: number, f: Function): Function {
-  if (f == null) { return null; }
+export function curry(arity: number, f: Function): Function | undefined {
+  if (f == null) { return undefined; }
   if (CURRIED_KEY in f) {
     return (f as any)[CURRIED_KEY];
   }
@@ -638,7 +701,7 @@ export function curry(arity: number, f: Function): Function {
 
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
-    return null;
+    return undefined;
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
@@ -651,32 +714,32 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
         // Wrap arguments to make sure .concat doesn't destruct arrays. Example
         // [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
         // [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
-        return (a1: any) => f.apply(null, args.concat([a1]));
+        return (a1: any) => f.apply(undefined, args.concat([a1]));
       case 2:
-        return (a1: any) => (a2: any) => f.apply(null, args.concat([a1, a2]));
+        return (a1: any) => (a2: any) => f.apply(undefined, args.concat([a1, a2]));
       case 3:
-        return (a1: any) => (a2: any) => (a3: any) => f.apply(null, args.concat([a1, a2, a3]));
+        return (a1: any) => (a2: any) => (a3: any) => f.apply(undefined, args.concat([a1, a2, a3]));
       case 4:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(null, args.concat([a1, a2, a3, a4]));
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(undefined, args.concat([a1, a2, a3, a4]));
       case 5:
         return (a1: any) => (a2: any) => (a3: any) =>
-          (a4: any) => (a5: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5]));
+          (a4: any) => (a5: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5]));
       case 6:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
-          (a5: any) => (a6: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6]));
+          (a5: any) => (a6: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6]));
       case 7:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
-          (a6: any) => (a7: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7]));
+          (a6: any) => (a7: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7]));
       case 8:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
-          (a7: any) => (a8: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
+          (a7: any) => (a8: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
       default:
         throw new Error("Partially applying to more than 8-arity is not supported: " + arity);
     }
   }
 }
 
-type CurriedArgMapping = [number, number] | 0;
+type CurriedArgMapping = [number, number] | 0; // expected arity, actual arity
 
 export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
   function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {
@@ -708,9 +771,9 @@ export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
   dict.set(k, v);
 }
 
-export function getItemFromDict<K, V>(map: Map<K, V>, key: K): V {
+export function getItemFromDict<K, V>(map: Map<K, V>, key: K) {
   if (map.has(key)) {
-    return map.get(key);
+    return map.get(key) as V;
   } else {
     throw new Error(`The given key '${key}' was not present in the dictionary.`);
   }

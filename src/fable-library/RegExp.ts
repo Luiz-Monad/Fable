@@ -1,6 +1,6 @@
 export type MatchEvaluator = (match: any) => string;
 
-export function create(pattern: string, options: number) {
+export function create(pattern: string, options: number = 0) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001
   // * Multiline:   0x0002
@@ -18,11 +18,11 @@ export function create(pattern: string, options: number) {
 // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
 
 export function escape(str: string) {
-  return str.replace(/[\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 }
 
 export function unescape(str: string) {
-  return str.replace(/\\([\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
+  return str.replace(/\\([\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
 }
 
 export function isMatch(str: string | RegExp, pattern: string, options: number = 0) {
@@ -71,7 +71,7 @@ export function replace(
   limit?: number, offset: number = 0): string {
   function replacer() {
     let res = arguments[0];
-    if (limit !== 0) {
+    if (limit) {
       limit--;
       const match: any = [];
       const len = arguments.length;
@@ -86,7 +86,7 @@ export function replace(
   }
   if (typeof reg === "string") {
     const tmp = reg as string;
-    reg = create(input, limit);
+    reg = create(input, limit ?? 0);
     input = tmp;
     limit = undefined;
   }
@@ -95,7 +95,7 @@ export function replace(
     return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
   } else {
     // $0 doesn't work with JS regex, see #1155
-    replacement = replacement.replace(/\$0/g, (s) => "$&");
+    replacement = replacement.replace(/\$0/g, (_s) => "$&");
     if (limit != null) {
       let m: RegExpExecArray;
       const sub1 = input.substring(offset);
@@ -112,7 +112,7 @@ export function replace(
 export function split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {
   if (typeof reg === "string") {
     const tmp = reg as string;
-    reg = create(input, limit);
+    reg = create(input, limit ?? 0);
     input = tmp;
     limit = undefined;
   }

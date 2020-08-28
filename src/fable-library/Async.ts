@@ -6,14 +6,13 @@ import { IAsyncContext } from "./AsyncBuilder";
 import { protectedCont } from "./AsyncBuilder";
 import { protectedBind } from "./AsyncBuilder";
 import { protectedReturn } from "./AsyncBuilder";
-import { choice1, choice2 } from "./Option";
+import { choice1Of2, choice2Of2 } from "./Option";
 import { map } from "./Seq";
 
 // Implemented just for type references
-export default class Async<T> {
-}
+export class Async<_T> { }
 
-function emptyContinuation<T>(x: T) {
+function emptyContinuation<T>(_x: T) {
   // NOP
 }
 
@@ -78,8 +77,8 @@ export const defaultCancellationToken = new CancellationToken();
 export function catchAsync<T>(work: IAsync<T>) {
   return protectedCont((ctx: IAsyncContext<any>) => { // ctx: IAsyncContext<Choice<T, Error>>
     work({
-      onSuccess: (x) => ctx.onSuccess(choice1(x)),
-      onError: (ex) => ctx.onSuccess(choice2(ex)),
+      onSuccess: (x) => ctx.onSuccess(choice1Of2(x)),
+      onError: (ex) => ctx.onSuccess(choice2Of2(ex)),
       onCancel: ctx.onCancel,
       cancelToken: ctx.cancelToken,
       trampoline: ctx.trampoline,
@@ -93,7 +92,7 @@ export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
 }
 
 export function ignore<T>(computation: IAsync<T>) {
-  return protectedBind(computation, (x) => protectedReturn(void 0));
+  return protectedBind(computation, (_x) => protectedReturn(void 0));
 }
 
 export function parallel<T>(computations: Iterable<IAsync<T>>) {
@@ -114,11 +113,11 @@ export function sleep(millisecondsDueTime: number) {
   });
 }
 
-export function start<T>(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+export function start<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
   return startWithContinuations(computation, cancellationToken);
 }
 
-export function startImmediate(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+export function startImmediate<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
   return start(computation, cancellationToken);
 }
 
@@ -130,7 +129,7 @@ export function startWithContinuations<T>(
   cancelToken?: CancellationToken) {
   if (typeof continuation !== "function") {
     cancelToken = continuation as CancellationToken;
-    continuation = null;
+    continuation = undefined;
   }
   const trampoline = new Trampoline();
   computation({
@@ -147,3 +146,5 @@ export function startAsPromise<T>(computation: IAsync<T>, cancellationToken?: Ca
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
 }
+
+export default Async;

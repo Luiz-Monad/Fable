@@ -33,6 +33,36 @@ let tests =
 
       // Format
 
+      testCase "StringBuilder works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append "Hello" |> ignore
+            sb.AppendLine () |> ignore
+            sb.AppendLine "World!" |> ignore
+            let expected = System.Text.StringBuilder()
+                              .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
+                              .ToString()
+            sb.ToString() |> equal expected
+
+      testCase "StringBuilder.Lengh works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append("Hello") |> ignore
+            // We don't test the AppendLine for Length because depending on the OS
+            // the result is different. Unix \n VS Windows \r\n 
+            // sb.AppendLine() |> ignore 
+            equal 5 sb.Length
+      
+      testCase "StringBuilder.ToString works with index and length" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append("Hello") |> ignore
+            sb.AppendLine() |> ignore
+            equal "ll" (sb.ToString(2, 2))
+            
+      testCase "StringBuilder.Clear works" <| fun () ->
+            let builder = new System.Text.StringBuilder()
+            builder.Append("1111") |> ignore
+            builder.Clear() |> ignore
+            equal "" (builder.ToString())
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"
@@ -172,6 +202,30 @@ let tests =
             o?self <- o
             sprintf "%A" o |> ignore
       #endif
+
+      testCase "sprintf \"%A\" with lists works" <| fun () ->
+            let xs = ["Hi"; "Hello"; "Hola"]
+            (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+
+      testCase "sprintf \"%A\" with nested lists works" <| fun () ->
+            let xs = [["Hi"]; ["Hello"]; ["Hola"]]
+            (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+
+      testCase "sprintf \"%A\" with sequences works" <| fun () ->
+            let xs = seq { "Hi"; "Hello"; "Hola" }
+            (sprintf "%A" xs).Replace("\"", "") |> equal "seq [Hi; Hello; Hola]"
+
+      testCase "Storing result of Seq.tail and printing the result several times works. Related to #1996" <| fun () ->
+            let tweets = seq { "Hi"; "Hello"; "Hola" }
+            let tweetsTailR: seq<string> = tweets |> Seq.tail
+
+            let a = sprintf "%A" (tweetsTailR)
+            let b = sprintf "%A" (tweetsTailR)
+
+            let expected = "seq [Hello; Hola]"
+
+            equal expected (a.Replace("\"", ""))
+            equal expected (b.Replace("\"", ""))
 
       testCase "sprintf \"%X\" works" <| fun () ->
             //These should all be the Native JS Versions (except int64 / uint64)
@@ -518,6 +572,10 @@ let tests =
             @"\\\abc///".Trim('\\','/')
             |> equal "abc"
 
+      testCase "String.Trim with special chars works" <| fun () ->
+            @"()[]{}abc/.?*+-^$|\".Trim(@"()[]{}/.?*+-^$|\".ToCharArray())
+            |> equal "abc"
+
       testCase "String.TrimStart works" <| fun () ->
             "!!--abc   ".TrimStart('!','-')
             |> equal "abc   "
@@ -552,6 +610,13 @@ let tests =
       testCase "String.Substring works with length" <| fun () ->
             "abcdefg".Substring(2, 2)
             |> equal "cd"
+
+      testCase "String.Substring throws error if startIndex or length are out of bounds" <| fun () -> // See #1955
+            let throws f =
+                try f () |> ignore; false
+                with _ -> true
+            throws (fun _ -> "abcdefg".Substring(20)) |> equal true
+            throws (fun _ -> "abcdefg".Substring(2, 10)) |> equal true
 
       testCase "String.ToUpper works" <| fun () ->
             "AbC".ToUpper() |> equal "ABC"

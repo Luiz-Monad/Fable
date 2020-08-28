@@ -1,3 +1,19 @@
+### 1.5.0
+
+* Updated FSharp.Core to 4.7.2
+* Updated .NET Core to 3.1.300
+
+### 1.4.0
+
+* Updated FSharp.Core to 4.7.1
+* Updated .NET Core to 3.1.201
+
+### 1.3.0
+
+* Updated Fable.Core to 3.1.5
+* Fix #1972
+* Updated .NET Core to 3.1.101
+
 ### 1.2.0
 
 * Update FSharp.Core to 4.7.0

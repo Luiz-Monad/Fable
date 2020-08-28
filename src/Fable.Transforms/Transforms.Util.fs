@@ -69,6 +69,13 @@ module Types =
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] ienumerableGeneric = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] ienumerable = "System.Collections.IEnumerable"
+    let [<Literal>] ienumeratorGeneric = "System.Collections.Generic.IEnumerator`1"
+    let [<Literal>] ienumerator = "System.Collections.IEnumerator"
+    let [<Literal>] icollectionGeneric = "System.Collections.Generic.ICollection`1"
+    let [<Literal>] icollection = "System.Collections.ICollection"
+    let [<Literal>] iequatableGeneric = "System.IEquatable`1"
+    let [<Literal>] iequatable = "System.IEquatable"
+    let [<Literal>] icomparableGeneric = "System.IComparable`1"
     let [<Literal>] icomparable = "System.IComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
@@ -303,11 +310,10 @@ module AST =
             | _ -> true
         | _ -> true
 
-    // TODO: Add `Any` too?
-    /// For unit, unresolved generics or nested options, create a runtime wrapper
-    /// See fable-library/Option.ts for more info
+    /// For unit, unresolved generics or nested options or unknown types,
+    /// create a runtime wrapper. See fable-library/Option.ts for more info.
     let rec mustWrapOption = function
-        | Unit | GenericParam _ | Option _ -> true
+        | Any | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
     /// ATTENTION: Make sure the ident name will be unique within the file
@@ -385,7 +391,8 @@ module AST =
           Args = args
           SignatureArgTypes = argTypes
           Spread = NoSpread
-          IsBaseOrSelfConstructorCall = false }
+          IsBaseCall = false
+          IsSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =
         Operation(Call(StaticCall functionExpr, argInfo), t, r)
@@ -401,6 +408,17 @@ module AST =
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
+
+    let getNumberKindName kind =
+        match kind with
+        | Int8 -> "int8"
+        | UInt8 -> "uint8"
+        | Int16 -> "int16"
+        | UInt16 -> "uint16"
+        | Int32 -> "int32"
+        | UInt32 -> "uint32"
+        | Float32 -> "float32"
+        | Float64 -> "float64"
 
     let getTypedArrayName (com: ICompiler) numberKind =
         match numberKind with

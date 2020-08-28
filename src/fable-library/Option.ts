@@ -1,16 +1,16 @@
-import { declare, Union } from "./Types";
+import { Union } from "./Types";
 import { compare, equals, structuralHash } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
-// to null in runtime. These two rules must be followed:
+// to `undefined` in runtime. These two rules must be followed:
 
-// 1- None is always null in runtime, a non-strict null check
+// 1- `None` is always `undefined` in runtime, a non-strict null check
 //    (`x == null`) is enough to check the case of an option.
 // 2- To get the value of an option the `getValue` helper
 //    below must **always** be used.
 
-export type Option<T> = T | Some<T>;
+export type Option<T> = T | Some<T> | undefined;
 
 // Using a class here for better compatibility with TS files importing Some
 export class Some<T> {
@@ -51,97 +51,110 @@ export class Some<T> {
 }
 
 export function some<T>(x: T): Option<T> {
-  x = (x === undefined) ? null : x;
   return x == null || x instanceof Some ? new Some(x) : x;
 }
 
-export function value<T>(x: Option<T>, acceptNull?: boolean) {
+export function value<T>(x: Option<T>) {
   if (x == null) {
-    if (!acceptNull) {
-      throw new Error("Option has no value");
-    }
-    return null;
+    throw new Error("Option has no value");
   } else {
     return x instanceof Some ? x.value : x;
   }
 }
 
-export function defaultArg<T>(arg: Option<T>, defaultValue: T, f?: (arg0: T) => T) {
-  return arg == null ? defaultValue : (f != null ? f(value(arg)) : value(arg));
+export function tryValue<T>(x: Option<T>) {
+  return x instanceof Some ? x.value : x;
 }
 
-export function defaultArgWith<T>(arg: Option<T>, defThunk: () => T) {
-  return arg == null ? defThunk() : value(arg);
+export function toArray<T>(opt: Option<T>): T[] {
+  return (opt == null) ? [] : [value(opt)];
 }
 
-export function filter<T>(predicate: (arg0: T) => boolean, arg: Option<T>) {
-  return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
+export function defaultArg<T>(opt: Option<T>, defaultValue: T): T {
+  return (opt != null) ? value(opt) : defaultValue;
 }
 
-export function map<T1, T2>(f: (arg0: T1) => T2, arg: Option<T1>) {
-  return arg == null ? arg : some(f(value(arg)));
+export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T): T {
+  return (opt != null) ? value(opt) : defThunk();
 }
 
-export function mapMultiple<T>(predicate: (arg0: T) => boolean, ...args: T[]) {
-  return args.every((x) => x != null) ? predicate.apply(null, args) : null;
+export function filter<T>(predicate: (arg: T) => boolean, opt: Option<T>): Option<T> {
+  return (opt != null) ? (predicate(value(opt)) ? opt : undefined) : opt;
 }
 
-export function bind<T1, T2>(f: (arg0: T1) => Option<T2>, arg: Option<T1>) {
-  return arg == null ? arg : f(value(arg));
+export function map<T, U>(mapping: (arg: T) => U, opt: Option<T>): Option<U> {
+  return (opt != null) ? some(mapping(value(opt))) : undefined;
 }
 
-export function tryOp<Arg, Result>(op: (x: Arg) => Result, arg: Arg) {
+export function map2<T1, T2, U>(
+  mapping: (arg1: T1, arg2: T2) => Option<U>,
+  opt1: Option<T1>, opt2: Option<T2>): Option<U> {
+  return (opt1 != null && opt2 != null) ? mapping(value(opt1), value(opt2)) : undefined;
+}
+
+export function map3<T1, T2, T3, U>(
+  mapping: (arg1: T1, arg2: T2, arg3: T3) => Option<U>,
+  opt1: Option<T1>, opt2: Option<T2>, opt3: Option<T3>): Option<U> {
+  return (opt1 != null && opt2 != null && opt3 != null) ? mapping(value(opt1), value(opt2), value(opt3)) : undefined;
+}
+
+export function bind<T, U>(binder: (arg: T) => Option<U>, opt: Option<T>): Option<U> {
+  return opt != null ? binder(value(opt)) : undefined;
+}
+
+export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
   try {
     return some(op(arg));
   } catch {
-    return null;
+    return undefined;
   }
 }
 
 // CHOICE
 
-export const Choice = declare(function Choice(this: any, tag: number, name: string, field: any) {
-  Union.call(this, tag, name, field);
-}, Union);
+export class Choice<_T1, _T2> extends Union { }
+export class Choice3<_T1, _T2, _T3> extends Union { }
+export class Choice4<_T1, _T2, _T3, _T4> extends Union { }
+export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union { }
+export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union { }
+export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union { }
 
-export function choice1(x: any) {
+export function choice1Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
   return new Choice(0, "Choice1Of2", x);
 }
 
-export function choice2(x: any) {
+export function choice2Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
   return new Choice(1, "Choice2Of2", x);
 }
 
-export function tryValueIfChoice1(x: any) {
-  return x.tag === 0 ? some(x.fields[0]) : null;
+export function tryValueIfChoice1Of2<T1, T2>(x: Choice<T1, T2>): Option<T1> {
+  return x.tag === 0 ? some(x.fields[0]) : undefined;
 }
 
-export function tryValueIfChoice2(x: any) {
-  return x.tag === 1 ? some(x.fields[0]) : null;
+export function tryValueIfChoice2Of2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
+  return x.tag === 1 ? some(x.fields[0]) : undefined;
 }
 
 // RESULT
 
-export const Result = declare(function Result(this: any, tag: number, name: string, field: any) {
-  Union.call(this, tag, name, field);
-}, Union);
+export class Result<_T, _U> extends Union { }
 
-export function ok(x: any) {
+export function ok<T, U>(x: T | U): Result<T, U> {
   return new Result(0, "Ok", x);
 }
 
-export function error(x: any) {
+export function error<T, U>(x: T | U): Result<T, U> {
   return new Result(1, "Error", x);
 }
 
-export function mapOk(f: (arg: any) => any, result: any) {
+export function mapOk<T, U>(f: (arg: T) => T, result: Result<T, U>) {
   return result.tag === 0 ? ok(f(result.fields[0])) : result;
 }
 
-export function mapError(f: (arg: any) => any, result: any) {
+export function mapError<T, U>(f: (arg: U) => U, result: Result<T, U>) {
   return result.tag === 1 ? error(f(result.fields[0])) : result;
 }
 
-export function bindOk(f: (arg: any) => any, result: any) {
+export function bindOk<T, U>(f: (arg: T) => Result<T, U>, result: Result<T, U>) {
   return result.tag === 0 ? f(result.fields[0]) : result;
 }

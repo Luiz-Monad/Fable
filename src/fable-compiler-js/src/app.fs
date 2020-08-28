@@ -5,16 +5,9 @@ open Fable.Compiler.ProjectParser
 open Fable.Core
 open Fable.Core.JsInterop
 
-#if TEST_LOCAL
-let [<Emit("__dirname")>] __dirname: string = jsNative
-let initFable (): Fable.Standalone.IFableManager = import "init" "${entryDir}../../fable-standalone"
-let getMetadataDir(): string = __dirname + "/" + "${entryDir}../../fable-metadata/lib"
-let getFableLibDir(): string = __dirname + "/" + "${entryDir}../../../build/fable-library"
-#else
 let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
 let getMetadataDir(): string = importDefault "fable-metadata"
 let getFableLibDir(): string = importMember "./util.js"
-#endif
 
 let references = Fable.Standalone.Metadata.references_core
 let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
@@ -22,8 +15,7 @@ let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binarie
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
         let errorType = (if e.IsWarning then "Warning" else "Error")
-        printfn "%s (%d,%d--%d,%d): %s: %s" e.FileName e.EndLineAlternate
-            e.StartColumn e.EndLineAlternate e.EndColumn errorType e.Message
+        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLineAlternate e.StartColumn errorType e.Message
     let warnings, errors = errors |> Array.partition (fun e -> e.IsWarning)
     let hasErrors = not (Array.isEmpty errors)
     if showWarnings then
@@ -32,11 +24,12 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-type CmdLineOptions = {
-    commonjs: bool
-    optimize: bool
-    watchMode: bool
-}
+let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
+    { typedArrays = not (options.typescript)
+      clampByteArrays = false
+      classTypes = options.classTypes
+      typescript = options.typescript
+      precompiledLib = None }
 
 let parseFiles projectFileName outDir options =
     // parse project
@@ -78,7 +71,8 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
+    let fableConfig = options |> toFableCompilerConfig
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, fableConfig)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
     let libDir = getFableLibDir() |> normalizeFullPath
@@ -90,7 +84,7 @@ let parseFiles projectFileName outDir options =
         res.FableErrors |> printErrors showWarnings
         // transform and save Babel AST
         let outPath = getRelativePath projDir fileName |> trimPath
-        transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options.commonjs)
+        transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options)
 
 let run opts projectFileName outDir =
     let commandToRun =
@@ -103,6 +97,9 @@ let run opts projectFileName outDir =
     let options = {
         commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
         optimize = opts |> Array.contains "--optimize-fcs"
+        sourceMaps = opts |> Array.contains "--sourceMaps"
+        classTypes = opts |> Array.contains "--classTypes"
+        typescript = opts |> Array.contains "--typescript"
         watchMode = opts |> Array.contains "--watch"
     }
     parseFiles projectFileName outDir options

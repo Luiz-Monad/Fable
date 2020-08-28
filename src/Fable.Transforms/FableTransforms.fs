@@ -192,6 +192,16 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
+let replaceNames replacements expr =
+    if Map.isEmpty replacements
+    then expr
+    else expr |> visitFromInsideOut (function
+        | IdentExpr id as e ->
+            match Map.tryFind id.Name replacements with
+            | Some name -> { id with Name=name } |> IdentExpr
+            | None -> e
+        | e -> e)
+
 let countReferences limit identName body =
     let mutable count = 0
     body |> deepExists (function
@@ -348,8 +358,8 @@ module private Transforms =
     // TODO: Do we need to do this recursively, and check options and delegates too?
     let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
-        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_))
-                when List.sameLength expectedArgs actualArgs ->
+        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
+            let actualArgs = List.truncate expectedArgs.Length actualArgs
             let _, replacements =
                 ((0, Map.empty), expectedArgs, actualArgs)
                 |||> List.fold2 (fun (index, replacements) expected actual ->

@@ -2,6 +2,7 @@ import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
+export type PropertyInfo = FieldInfo;
 
 export type Constructor = new (...args: any[]) => any;
 
@@ -10,7 +11,7 @@ export class CaseInfo {
     public declaringType: TypeInfo,
     public tag: number,
     public name: string,
-    public fields?: TypeInfo[]) {
+    public fields?: FieldInfo[]) {
   }
 }
 
@@ -20,7 +21,7 @@ export class TypeInfo {
   constructor(
     public fullname: string,
     public generics?: TypeInfo[],
-    public constructor?: Constructor,
+    public construct?: Constructor,
     public fields?: () => FieldInfo[],
     public cases?: () => CaseInfo[],
     public enumCases?: EnumCase[]) {
@@ -62,76 +63,81 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
   }
 }
 
-export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics);
+export function class_type(
+    fullname: string,
+    generics?: TypeInfo[],
+    construct?: Constructor): TypeInfo {
+  return new TypeInfo(fullname, generics, construct);
 }
 
-export function record(
+export function record_type(
   fullname: string,
   generics: TypeInfo[],
-  constructor: Constructor,
+  construct: Constructor,
   fields: () => FieldInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics, constructor, fields);
+  return new TypeInfo(fullname, generics, construct, fields);
 }
 
-export function anonRecord(...fields: FieldInfo[]): TypeInfo {
-  return new TypeInfo("", null, null, () => fields);
+export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
+  return new TypeInfo("", undefined, undefined, () => fields);
 }
 
-export type CaseInfoInput = string | [string, TypeInfo[]];
+export type CaseInfoInput = string | [string, FieldInfo[]];
 
-export function union(
+export function union_type(
   fullname: string,
   generics: TypeInfo[],
-  constructor: Constructor,
+  construct: Constructor,
   cases: () => CaseInfoInput[]): TypeInfo {
-  const t: TypeInfo = new TypeInfo(fullname, generics, constructor, null, () => cases().map((x, i) =>
-    typeof x === "string" ? new CaseInfo(t, i, x) : new CaseInfo(t, i, x[0], x[1])));
+  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, () => cases().map((x, i) =>
+    typeof x === "string"
+        ? new CaseInfo(t, i, x)
+        : new CaseInfo(t, i, x[0], x[1])));
   return t;
 }
 
-export function tuple(...generics: TypeInfo[]): TypeInfo {
+export function tuple_type(...generics: TypeInfo[]): TypeInfo {
   return new TypeInfo("System.Tuple`" + generics.length, generics);
 }
 
-export function delegate(...generics: TypeInfo[]): TypeInfo {
+export function delegate_type(...generics: TypeInfo[]): TypeInfo {
   return new TypeInfo("System.Func`" + generics.length, generics);
 }
 
-export function lambda(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
+export function lambda_type(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
   return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType]);
 }
 
-export function option(generic: TypeInfo): TypeInfo {
+export function option_type(generic: TypeInfo): TypeInfo {
   return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic]);
 }
 
-export function list(generic: TypeInfo): TypeInfo {
+export function list_type(generic: TypeInfo): TypeInfo {
   return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
 }
 
-export function array(generic: TypeInfo): TypeInfo {
+export function array_type(generic: TypeInfo): TypeInfo {
   return new TypeInfo(generic.fullname + "[]", [generic]);
 }
 
-export function enumType(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
-  return new TypeInfo(fullname, [underlyingType], null, null, null, enumCases);
+export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
+  return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, enumCases);
 }
 
-export const obj: TypeInfo = new TypeInfo("System.Object");
-export const unit: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
-export const char: TypeInfo = new TypeInfo("System.Char");
-export const string: TypeInfo = new TypeInfo("System.String");
-export const bool: TypeInfo = new TypeInfo("System.Boolean");
-export const int8: TypeInfo = new TypeInfo("System.SByte");
-export const uint8: TypeInfo = new TypeInfo("System.Byte");
-export const int16: TypeInfo = new TypeInfo("System.Int16");
-export const uint16: TypeInfo = new TypeInfo("System.UInt16");
-export const int32: TypeInfo = new TypeInfo("System.Int32");
-export const uint32: TypeInfo = new TypeInfo("System.UInt32");
-export const float32: TypeInfo = new TypeInfo("System.Single");
-export const float64: TypeInfo = new TypeInfo("System.Double");
-export const decimal: TypeInfo = new TypeInfo("System.Decimal");
+export const obj_type: TypeInfo = new TypeInfo("System.Object");
+export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
+export const char_type: TypeInfo = new TypeInfo("System.Char");
+export const string_type: TypeInfo = new TypeInfo("System.String");
+export const bool_type: TypeInfo = new TypeInfo("System.Boolean");
+export const int8_type: TypeInfo = new TypeInfo("System.SByte");
+export const uint8_type: TypeInfo = new TypeInfo("System.Byte");
+export const int16_type: TypeInfo = new TypeInfo("System.Int16");
+export const uint16_type: TypeInfo = new TypeInfo("System.UInt16");
+export const int32_type: TypeInfo = new TypeInfo("System.Int32");
+export const uint32_type: TypeInfo = new TypeInfo("System.UInt32");
+export const float32_type: TypeInfo = new TypeInfo("System.Single");
+export const float64_type: TypeInfo = new TypeInfo("System.Double");
+export const decimal_type: TypeInfo = new TypeInfo("System.Decimal");
 
 export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
   if (Array.isArray(info)) {
@@ -162,8 +168,8 @@ export function isArray(t: TypeInfo): boolean {
   return t.fullname.endsWith("[]");
 }
 
-export function getElementType(t: TypeInfo): TypeInfo {
-  return isArray(t) ? t.generics[0] : null;
+export function getElementType(t: TypeInfo): TypeInfo | undefined {
+  return isArray(t) ? t.generics?.[0] : undefined;
 }
 
 export function isGenericType(t: TypeInfo) {
@@ -179,15 +185,15 @@ export function isEnum(t: TypeInfo) {
  * but it should be enough for type comparison purposes
  */
 export function getGenericTypeDefinition(t: TypeInfo) {
-  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
+  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj_type));
 }
 
 export function getEnumUnderlyingType(t: TypeInfo) {
-  return t.generics[0];
+  return t.generics?.[0];
 }
 
 export function getEnumValues(t: TypeInfo): number[] {
-  if (isEnum(t)) {
+  if (isEnum(t) && t.enumCases != null) {
     return t.enumCases.map((kv) => kv[1]);
   } else {
     throw new Error(`${t.fullname} is not an enum type`);
@@ -195,7 +201,7 @@ export function getEnumValues(t: TypeInfo): number[] {
 }
 
 export function getEnumNames(t: TypeInfo): string[] {
-  if (isEnum(t)) {
+  if (isEnum(t) && t.enumCases != null) {
     return t.enumCases.map((kv) => kv[0]);
   } else {
     throw new Error(`${t.fullname} is not an enum type`);
@@ -218,7 +224,7 @@ function getEnumCase(t: TypeInfo, v: number | string): EnumCase {
         }
       }
       // .NET returns the number even if it doesn't match any of the cases
-      return [null, v];
+      return ["", v];
     }
   } else {
     throw new Error(`${t.fullname} is not an enum type`);
@@ -238,7 +244,7 @@ export function tryParseEnum(t: TypeInfo, str: string): [boolean, number] {
   } catch {
     // supress error
   }
-  return [false, null];
+  return [false, NaN];
 }
 
 export function getEnumName(t: TypeInfo, v: number): string {
@@ -248,7 +254,7 @@ export function getEnumName(t: TypeInfo, v: number): string {
 export function isEnumDefined(t: TypeInfo, v: string | number): boolean {
   try {
     const kv = getEnumCase(t, v);
-    return kv[0] != null;
+    return kv[0] != null && kv[0] !== "";
   } catch {
     // supress error
   }
@@ -274,7 +280,7 @@ export function getRecordElements(t: TypeInfo): FieldInfo[] {
 }
 
 export function getTupleElements(t: TypeInfo): TypeInfo[] {
-  if (isTuple(t)) {
+  if (isTuple(t) && t.generics != null) {
     return t.generics;
   } else {
     throw new Error(`${t.fullname} is not a tuple type`);
@@ -282,7 +288,7 @@ export function getTupleElements(t: TypeInfo): TypeInfo[] {
 }
 
 export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
-  if (isFunction(t)) {
+  if (isFunction(t) && t.generics != null) {
     const gen = t.generics;
     return [gen[0], gen[1]];
   } else {
@@ -319,10 +325,10 @@ export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
 }
 
 export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
-  return uci.fields == null ? [] : uci.fields.map((t, i) => ["Data" + i, t] as FieldInfo);
+  return uci.fields == null ? [] : uci.fields;
 }
 
-export function getRecordFields(v: any): any[] {
+export function getRecordFields(v: any): FieldInfo[] {
   return Object.keys(v).map((k) => v[k]);
 }
 
@@ -343,7 +349,9 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
   if (values.length !== expectedLength) {
     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
   }
-  return new uci.declaringType.constructor(uci.tag, uci.name, ...values);
+  return uci.declaringType.construct != null
+    ? new uci.declaringType.construct(uci.tag, uci.name, ...values)
+    : {};
 }
 
 export function makeRecord(t: TypeInfo, values: any[]): any {
@@ -351,16 +359,39 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
   if (fields.length !== values.length) {
     throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
-  return t.constructor != null
-    ? new t.constructor(...values)
+  return t.construct != null
+    ? new t.construct(...values)
     : makeAnonRecord(fields.reduce((obj, [key, _t], i) => {
       obj[key] = values[i];
       return obj;
     }, {} as any));
 }
 
-export function makeTuple(values: any[], t: TypeInfo): any {
+export function makeTuple(values: any[], _t: TypeInfo): any {
   return values;
+}
+
+export function makeGenericType(t: TypeInfo, generics: TypeInfo[]): TypeInfo {
+    return new TypeInfo(
+        t.fullname,
+        generics,
+        t.construct,
+        t.fields,
+        t.cases);
+}
+
+export function createInstance(t: TypeInfo, consArgs?: any[]): any {
+    // TODO: Check if consArgs length is same as t.construct?
+    // (Arg types can still be different)
+    if (typeof t.construct === "function") {
+        return new t.construct(...(consArgs ?? []));
+    } else {
+        throw new Error(`Cannot access constructor of ${t.fullname}`);
+    }
+}
+
+export function getValue(propertyInfo : PropertyInfo, v : any) : any {
+  return v[propertyInfo[0]] ;
 }
 
 // Fable.Core.Reflection

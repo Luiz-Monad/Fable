@@ -335,6 +335,11 @@ let tests =
         let ys = xs |> Array.filter (fun x -> x > 2s)
         ys.Length |> equal 2
 
+    testCase "Array.filter with chars works" <| fun () ->
+        let xs = [|'a'; '2'; 'b'; 'c'|]
+        let ys = xs |> Array.filter Char.IsLetter
+        ys.Length |> equal 3
+
     testCase "Array.find works" <| fun () ->
         let xs = [|1us; 2us; 3us; 4us|]
         xs |> Array.find ((=) 2us)
@@ -470,6 +475,13 @@ let tests =
         let ys = [|2.|]
         let zs = Array.map2 (*) xs ys
         zs.[0] |> equal 2.
+
+    testCase "Array.map3 works" <| fun () ->
+        let value1 = [|1.|]
+        let value2 = [|2.|]
+        let value3 = [|3.|]
+        let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
+        zs.[0] |> equal 6.
 
     testCase "Array.mapi works" <| fun () ->
         let xs = [|1.; 2.|]

@@ -1,4 +1,4 @@
-import { tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { Choice, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option";
 import { IDisposable } from "./Util";
 
 export interface IObserver<T> {
@@ -14,7 +14,7 @@ export class Observer<T> implements IObserver<T> {
 
   constructor(onNext: (x: T) => void, onError?: (e: any) => void, onCompleted?: () => void) {
     this.OnNext = onNext;
-    this.OnError = onError || ((e: any) => { return; });
+    this.OnError = onError || ((_e: any) => { return; });
     this.OnCompleted = onCompleted || (() => { return; });
   }
 }
@@ -117,7 +117,7 @@ export function merge<T>(source1: IObservable<T>, source2: IObservable<T>) {
 
 export function pairwise<T>(source: IObservable<T>) {
   return new Observable<[T, T]>((observer) => {
-    let last: T = null;
+    let last: T;
     return source.Subscribe(new Observer<T>((next) => {
       if (last != null) {
         observer.OnNext([last, next]);
@@ -142,8 +142,11 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, source: IObse
   }) as IObservable<U>;
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => /* Choice<U1, U2> */ any, source: IObservable<T>) {
-  return [choose((v) => tryValueIfChoice1(splitter(v)), source), choose((v) => tryValueIfChoice2(splitter(v)), source)];
+export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, source: IObservable<T>) {
+  return [
+    choose((v) => tryValueIfChoice1Of2(splitter(v)), source),
+    choose((v) => tryValueIfChoice2Of2(splitter(v)), source)
+  ];
 }
 
 export function subscribe<T>(callback: (x: T) => void, source: IObservable<T>) {

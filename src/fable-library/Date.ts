@@ -78,14 +78,14 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
 }
 
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
-  const d = new Date(date.getTime() + date.offset);
+  const d = new Date(date.getTime() + (date.offset ?? 0));
   if (typeof format !== "string") {
-    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString(date.offset);
+    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
     switch (format) {
       case "D": case "d": return dateToHalfUTCString(d, "first");
       case "T": case "t": return dateToHalfUTCString(d, "second");
-      case "O": case "o": return dateToISOStringWithOffset(d, date.offset);
+      case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
       default: throw new Error("Unrecognized Date print format");
     }
   } else {
@@ -113,13 +113,13 @@ function dateToStringWithKind(date: IDateTime, format?: string) {
   }
 }
 
-export function toString(date: IDateTime | IDateTimeOffset, format?: string) {
+export function toString(date: IDateTime | IDateTimeOffset, format?: string, _provider?: any) {
   return (date as IDateTimeOffset).offset != null
     ? dateToStringWithOffset(date, format)
     : dateToStringWithKind(date, format);
 }
 
-export default function DateTime(value: number, kind?: DateKind) {
+export function DateTime(value: number, kind?: DateKind) {
   const d = new Date(value) as IDateTime;
   d.kind = (kind == null ? DateKind.Unspecified : kind) | 0;
   return d;
@@ -145,7 +145,7 @@ export function fromDateTimeOffset(date: IDateTimeOffset, kind: DateKind) {
     case DateKind.UTC: return DateTime(date.getTime(), DateKind.UTC);
     case DateKind.Local: return DateTime(date.getTime(), DateKind.Local);
     default:
-      const d = DateTime(date.getTime() + date.offset, kind);
+      const d = DateTime(date.getTime() + (date.offset ?? 0), kind);
       return DateTime(d.getTime() - dateOffset(d), kind);
   }
 }
@@ -164,14 +164,22 @@ export function maxValue() {
   return DateTime(253402300799999, DateKind.Unspecified);
 }
 
-export function parseRaw(str: string) {
-  let date = new Date(str);
+export function parseRaw(input: string) {
+  if (input === null) {
+    throw new Error("Value cannot be null when parsing DateTime");
+  }
+  
+  if (input.trim() === "") {
+    throw new Error("An empty string is not recognized as a valid DateTime");
+  }
+  
+  let date = new Date(input);
   if (isNaN(date.getTime())) {
     // Try to check strings JS Date cannot parse (see #1045, #1422)
     // tslint:disable-next-line:max-line-length
-    const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*([+-]\d+(?::\d+)?)?\s*$/.exec(str);
+    const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*([+-]\d+(?::\d+)?)?\s*$/.exec(input);
     if (m != null) {
-      let baseDate: Date = null;
+      let baseDate: Date;
       let timeInSeconds = 0;
       if (m[2] != null) {
         const timeParts = m[2].split(":");
@@ -225,12 +233,8 @@ export function parse(str: string, detectUTC = false): IDateTime {
   return DateTime(date.getTime(), kind);
 }
 
-export function tryParse(v: string): [boolean, IDateTime] {
+export function tryParse(v: string, _refValue?: any): [boolean, IDateTime] {
   try {
-    // if value is null or whitespace, parsing fails
-    if (v == null || v.trim() === "") {
-      return [false, minValue()];
-    }
     return [true, parse(v)];
   } catch (_err) {
     return [false, minValue()];
@@ -404,7 +408,9 @@ export function addMonths(d: IDateTime, v: number) {
 }
 
 export function subtract(d: IDateTime, that: IDateTime | number) {
-  return typeof that === "number" ? add(d, -that) : d.getTime() - that.getTime();
+  return typeof that === "number"
+    ? add(d, -that)
+    : d.getTime() - that.getTime();
 }
 
 export function toLongDateString(d: IDateTime) {
@@ -434,7 +440,7 @@ export function op_Addition(x: IDateTime, y: number) {
   return add(x, y);
 }
 
-export function op_Subtraction(x: IDateTime, y: number | Date) {
+export function op_Subtraction(x: IDateTime, y: number | IDateTime) {
   return subtract(x, y);
 }
 
@@ -447,3 +453,5 @@ export function isDaylightSavingTime(x: IDateTime) {
 function isDST(janOffset: number, julOffset: number, tOffset: number) {
   return Math.min(janOffset, julOffset) === tOffset;
 }
+
+export default DateTime;

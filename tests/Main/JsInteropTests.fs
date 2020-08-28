@@ -6,7 +6,11 @@ open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
+
+let inline getNameofLambda (f: 'T->'U) =
+    nameofLambda f
 
 [<Global>]
 module GlobalModule =
@@ -271,6 +275,13 @@ let tests =
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
 
+    testCase "Assigning null with emit works" <| fun () ->
+        let x = createEmpty<obj>
+        x.["prop"] <- "prop value"
+        x.["prop"] |> isNull |> equal false
+        x.["prop"] <- null
+        x.["prop"] |> equal null
+
     testCase "Emit attribute conditional parameters works" <| fun () ->
         let style = createEmpty<TextStyle>
         style.FontFamily <- Some "ha"
@@ -299,6 +310,9 @@ let tests =
         nameofLambda(fun (x:Record) -> x.String) |> equal "String"
         nameofLambda(fun (x:Record) -> x.Int) |> equal "Int"
 
+    testCase "nameofLambda works in inlined functions" <| fun () ->
+        getNameofLambda (fun (x:Record) -> x.String) |> equal "String"
+
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"
         Horizontal |> unbox |> equal "Horizontal"
@@ -323,6 +337,11 @@ let tests =
     testCase "Local import with curried signatures works" <| fun () ->
         let add (x:int) (y:int): int = importMember "./js/1foo.js"
         3 |> add 2 |> equal 5
+
+    testCase "TypedArray element can be set and get using index" <| fun () ->
+        let arr = JS.Uint8Array.Create(5)
+        arr.[0] <- 5uy
+        equal 5uy arr.[0] 
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

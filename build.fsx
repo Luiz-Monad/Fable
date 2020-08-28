@@ -12,7 +12,7 @@ open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
-let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH + "&pr=false"
+let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH //+ "&pr=false"
 let APPVEYOR_REPL_ARTIFACT_URL =
     "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
@@ -66,12 +66,22 @@ let buildLibrary() =
     buildTypescript "src/fable-library"
     buildSplitter "src/fable-library"
 
+let buildLibraryTs() =
+    let projectDir = "src/fable-library"
+    let buildDirTs = "build/fable-library-ts"
+    let buildDirJs = "build/fable-library-js"
+    cleanDirs [buildDirTs; buildDirJs]
+    buildSplitterWithArgs projectDir ("--typescript --classTypes --outDir " + buildDirTs)
+    // TODO: cleanDirs [buildDirTs </> "fable-library"]
+    // TODO: copy *.ts/*.js from projectDir to buildDir
+    runInDir buildDirTs "npx tsc --init --target es2020 --module es2020 --allowJs"
+    runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
+
 let quicktest additionalCommands =
     cleanDirs ["build/fable-library"]
     concurrently [|
         // Watch fable-library
         yield "npx tsc --project src/fable-library --watch"
-        yield "npx fable-splitter -c src/fable-library/splitter.config.js --watch"
         // Restart splitter on changes so latest fable-library and compiler are picked
         yield "npx nodemon --watch src/quicktest -e \"fs\" --exec \"fable-splitter -c src/quicktest/splitter.config.js --run\""
         yield! additionalCommands
@@ -87,36 +97,42 @@ let buildCompiler() =
     buildLibrary()
     copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
 
-let buildCompilerJs testLocal =
+let buildCompilerJs() =
     let projectDir = "src/fable-compiler-js"
-    cleanDirs [projectDir </> "dist"; projectDir </> "out"]
-    if testLocal then
-        runInDir projectDir "npm link ../fable-metadata"
-        runInDir projectDir "npm link ../fable-standalone"
-    run (sprintf "npx fable %s/src/fable-compiler-js.fsproj %s/out" projectDir projectDir)
-    run (sprintf "npx rollup %s/out/app.js --file %s/dist/app.js --format umd --name Fable" projectDir projectDir)
+    let buildDir = "build/fable-compiler-js"
+    cleanDirs [buildDir; projectDir </> "dist"]
+    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out")
+    run (sprintf "npx rollup %s/out/app.js --file %s/dist/app.js --format umd --name Fable" buildDir projectDir)
     run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
-    // if testLocal then
-    //     buildSplitterWithArgs projectDir "--test-local"
-    // else
-    //     buildSplitter projectDir
 
 let buildStandalone() =
-    let projectDir = "src/fable-standalone"
+    let buildDir = "build/fable-standalone"
     let libraryDir = "build/fable-library"
+    let projectDir = "src/fable-standalone"
+    let distDir = "src/fable-standalone/dist"
     if pathExists libraryDir |> not then
         buildLibrary()
 
-    cleanDirs [projectDir </> "dist"]
-    // bundle.min.js
-    buildWebpack projectDir
-    fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
-    |> printfn "Bundle size: %iKB"
-    // worker.min.js
-    buildWebpack "src/fable-standalone/src/Worker"
+    // cleanup
+    cleanDirs [buildDir; distDir]
+    mkDirRecursive distDir
+    // build
+    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out-bundle")
+    buildSplitterWithArgs (projectDir + "/src/Worker") ("--outDir " + buildDir + "/out-worker")
+    // bundle
+    run (sprintf "npx rollup %s/out-bundle/Main.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" buildDir buildDir)
+    run (sprintf "npx rollup %s/out-worker/Worker.js --file %s/worker.js --format esm" buildDir buildDir)
+    // minimize
+    run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
+    // run (sprintf "npx terser %s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir)
+    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/worker.config.js" buildDir distDir projectDir)
+
+    // print bundle size
+    fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
+    fileSizeInBytes (distDir </> "worker.min.js") / 1000 |> printfn "Worker size: %iKB"
 
     // Put fable-library files next to bundle
-    let libraryTarget = projectDir </> "dist/fable-library"
+    let libraryTarget = distDir </> "fable-library"
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
@@ -139,13 +155,29 @@ let buildStandalone() =
     //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
 let testJs() =
-    buildStandalone()
+    let projectDir = "src/fable-compiler-js"
+    let buildDir = "build/tests-js"
+    if not (pathExists "build/fable-standalone") then
+        buildStandalone()
+    if not (pathExists "build/fable-compiler-js") then
+        buildCompilerJs()
+
+    cleanDirs [buildDir]
+
+    // Link fable-compiler-js to local packages
+    runInDir projectDir "npm link ../fable-metadata"
+    runInDir projectDir "npm link ../fable-standalone"
+
     // Test fable-compiler-js locally
-    buildCompilerJs true
-    run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs"
-    run "npx mocha build/tests-js --reporter dot -t 10000"
-    // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
-    // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+    run ("node " + projectDir + " tests/Main/Fable.Tests.fsproj " + buildDir + " --commonjs")
+    run ("npx mocha " + buildDir + " --reporter dot -t 10000")
+    // and another test
+    runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+    runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+
+    // Unlink local packages after test
+    runInDir projectDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
+    runInDir projectDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
 let test() =
     if pathExists "build/fable-library" |> not then
@@ -252,7 +284,7 @@ let packages =
     ["Fable.Core", doNothing
      "fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
-     "fable-compiler-js", (fun () -> buildCompilerJs false)
+     "fable-compiler-js", buildCompilerJs
      "fable-loader", doNothing
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
@@ -282,8 +314,9 @@ match argsLower with
     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
     |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
-| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false
+| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-splitter"|"splitter")::_ -> buildFableSplitter()
 | ("fable-standalone"|"standalone")::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()

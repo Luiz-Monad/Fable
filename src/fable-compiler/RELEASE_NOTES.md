@@ -1,3 +1,134 @@
+### 2.11.0
+
+* Add support for StringBuilder.Clear method (@MangelMaxime) 
+
+### 2.10.2
+
+* Implement boolean parsing @inosik
+* Add support for System.Uri.AbsoluteUri @BillHally
+
+### 2.10.1
+
+* Improve compiler switch `--classTypes` @ncave
+* Fix #2070: Private fields in derived classes overwrite fields from parent
+
+### 2.10.0
+
+* Adds cosh, sinh, and tanh operator support @sasmithjr
+* Compile `Option.None` as undefined @ncave
+* Can compile types as classes with compiler switch `--classTypes` @ncave
+* Fix System.Activator.CreateInstance (only for primary constructor)
+
+### 2.9.0
+
+* Related to #2043: Better error logging when an invalid JSON output happen (by @forki)
+
+### 2.8.4
+
+* Fix #2035: fold when state is func of arity > 1
+* Improve resolution of nameofLambda in inline functions
+
+### 2.8.3
+
+* Revert "Prevent re-mangling of imported members with dollar sign"
+
+### 2.8.2
+
+* Prevent re-mangling of imported members with dollar sign
+* Add calls to members with overload suffix as inline dependencies
+* Make nameofLambda work in inlined functions
+
+### 2.8.1
+
+* Fix #2030: Fix Array.map3 implementation (by @ncave)
+
+### 2.8.0
+
+* Add support for `using` function (by @ThisFunctionalTom)
+
+### 2.7.0
+
+* Fix #2015: Add `PropertyInfo.GetValue` support
+
+### 2.6.0
+
+* Fixed `List.init` to match `FSharp.Core` behavior (when initializing with side effects). (by @ncave)
+* Update FCS to latest F# master (by @ncave)
+* Fix #2017: Fix field name reflection for union case (by @anchann)
+* Add `Length` member to `StringBuilder` (by @ThisFunctionalTom)
+* Add `ToString(firstIndex, length)` override to `StringBuilder` (by @ThisFunctionalTom)
+
+### 2.5.1
+
+* Improve globbing support (by @ncave)
+* Fix #2010: Remove cycle dependencies in fable-library code (by @ncave)
+
+### 2.5.0
+
+* Add globbing support in fsproj (by @Shmew)
+
+### 2.4.23
+
+* Fixed buffer usage in fable-library encoding. (by @ncave)
+
+### 2.4.22
+
+* Fix #1999: Add support for Uri toString (by @ncave)
+
+### 2.4.21
+
+* Fix #1996: Storing result of Seq.tail and printing the result several times works (by @ncave)
+
+### 2.4.20
+
+* Added missing `Tuple.Rest` (by @ncave)
+
+### 2.4.19
+
+* Fix #1991: Trait calls for Tuple getters don't work (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.18
+
+* Minor update to fable-library (by @ncave)
+* Minor update to Replacements.fs making it easier to read some methods (by @ncave)
+
+### 2.4.17
+
+* Fix #1988: Allow to use `printfn "%A"` against `seq` (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.16
+
+* PR #1984: Minor update to fable-library, rewrite `Seq.pairwise` implementation (by @ncave)
+
+### 2.4.15
+
+* Fix #1979: Add support for LanguagePrimitives.xxxWithMeasure (by @ncave)
+
+### 2.4.14
+
+* Fix #1975: Fix endless loop (by @ncave)
+* Made ResizeArray.Add void (by @ncave)
+* Updated option and numeric types (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.13
+
+* Use strict mode in fable-library
+* Fix #1964: Add AppendLine to StringBuiler
+* Fix #1971: Trim in String.js fails for leading/following brackets
+* Fix #1972: Add back Item member to Typed arrays
+* Fixed error message formatting
+* Fixed tryEntityRef
+
+### 2.4.12
+
+* Fix #1959: Uncurry args passed to point-free methods
+* Fix #1955: Substring throws with invalid index and/or length arguments
+* Fix #1948: Wrap Option<obj>.Some in runtime to avoid null ambiguity
+* Fix #1895: Check also member of parent interfaces when casting an anonymous record
+
 ### 2.4.11
 
 * Fix #1937 (again): sign in sprintf for long @ncave
@@ -48,7 +179,7 @@
 ### 2.3.25
 
 * Fix #1900: gen param names conflict
-* Fixed large String.join and concat @ncave 
+* Fixed large String.join and concat @ncave
 
 ### 2.3.24
 

@@ -1,3 +1,76 @@
+### 1.3.17
+
+* fable-compiler 2.11.0
+
+### 1.3.16
+
+* fable-compiler 2.10.1
+
+### 1.3.15
+
+* fable-compiler 2.8.3
+
+### 1.3.14
+
+* fable-compiler 2.8.1
+
+### 1.3.13
+
+* fable-compiler 2.8.0
+
+### 1.3.12
+
+* fable-compiler 2.7.0
+
+### 1.3.11
+
+* fable-compiler 2.6.0
+
+### 1.3.10
+
+* fable-compiler 2.5.1
+
+### 1.3.9
+
+* fable-compiler 2.4.23
+* Use fable-splitter and rollup to generate the bundles
+
+### 1.3.8
+
+* fable-compiler 2.4.22
+
+### 1.3.8
+
+* fable-compiler 2.4.21
+
+### 1.3.7
+
+* fable-compiler 2.4.20
+
+### 1.3.6
+
+* fable-compiler 2.4.19
+
+### 1.3.5
+
+* fable-compiler 2.4.18
+
+### 1.3.4
+
+* fable-compiler 2.4.17
+
+### 1.3.3
+
+* fable-compiler 2.4.16
+
+### 1.3.2
+
+* fable-compiler 2.4.15
+
+### 1.3.1
+
+* fable-compiler 2.4.14
+
 ### 1.3.0
 
 * Catch up with fable-compiler 2.4.11

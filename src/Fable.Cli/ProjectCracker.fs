@@ -9,6 +9,7 @@ open System.Xml.Linq
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 open Fable
+open Globbing.Operators
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -208,8 +209,15 @@ let getSourcesFromFsproj (projFile: string) =
                     | att -> att.Value::src
             else src))
     |> List.concat
-    |> List.map (fun fileName ->
-        Path.Combine(projDir, fileName) |> Path.normalizeFullPath)
+    |> List.collect (fun fileName ->
+        Path.Combine(projDir, fileName)
+        |> Path.normalizeFullPath
+        |> function
+        | path when (path.Contains("*") || path.Contains("?")) ->
+            match !! path |> List.ofSeq with
+            | [] -> [ path ]
+            | globResults -> globResults
+        | path -> [ path ])
 
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
@@ -260,12 +268,10 @@ let fullCrack (projFile: string): CrackedFsproj =
         projRefs |> List.choose (fun projRef ->
             // Remove dllRefs corresponding to project references
             let projName = Path.GetFileNameWithoutExtension(projRef)
-            if projName = "Fable.Core" then None
-            else
-                let removed = dllRefs.Remove(projName)
-                if not removed then
-                    Log.always("Couldn't remove project reference " + projName + " from dll references")
-                Path.normalizeFullPath projRef |> Some)
+            let removed = dllRefs.Remove(projName)
+            if not removed then
+                Log.always("Couldn't remove project reference " + projName + " from dll references")
+            Path.normalizeFullPath projRef |> Some)
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
         dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
